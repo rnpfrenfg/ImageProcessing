@@ -123,7 +123,7 @@ void Work() {
 	}
 	grayImage.UpdateBitmap();
 
-	memcpy(histogramImage.quad, quad, size);
+	memcpy(histogramImage.quad, quad, image.quadMemorySize);
 	quad = histogramImage.quad;
 	const int allColors = 256;
 	int count[allColors] = { 0, };
@@ -163,7 +163,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ULONG_PTR ptr;
 	Gdiplus::GdiplusStartupInput in;
 	Gdiplus::GdiplusStartup(&ptr, &in, 0);
-	if (!CLoadImage(L"png.png")) {
+	if (!CLoadImage(L"png.jpg")) {
 		MessageBox(NULL, L"Cannot load image", L"error", MB_OK);
 		exit(0);
 	}

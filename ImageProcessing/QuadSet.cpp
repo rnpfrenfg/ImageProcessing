@@ -54,7 +54,7 @@ void QuadSet::SetPixel_quad(int x, int y, int r, int g, int b)
 
 void QuadSet::FillBlack()
 {
-	memset(quad, 0, width * height * sizeof(RGBQUAD));
+	memset(quad, 0, quadMemorySize);
 }
 
 inline Real Max50(Real k)
