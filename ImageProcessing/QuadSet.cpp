@@ -6,14 +6,13 @@ void QuadSet::Init(HDC& hdc, int sizeX, int sizeY)
 	height = sizeY;
 	quadMemorySize = width * height * 4;
 
-	int size = width * height;
-	quad = new RGBQUAD[size * 4];
+	quad = new RGBQUAD[width * height];
 
 	this->hdc = CreateCompatibleDC(hdc);
 	bitmap = CreateCompatibleBitmap(hdc, sizeX, sizeY);
 	SelectObject(this->hdc, bitmap);
 
-	GetBitmapBits(bitmap, size, quad);
+	GetBitmapBits(bitmap, quadMemorySize, quad);
 }
 
 void QuadSet::Init(HDC& hdc, Gdiplus::Bitmap& bitmap) {
