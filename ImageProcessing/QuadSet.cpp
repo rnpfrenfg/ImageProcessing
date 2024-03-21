@@ -16,6 +16,8 @@ void QuadSet::Init(HDC& hdc, int sizeX, int sizeY)
 }
 
 void QuadSet::Init(HDC& hdc, Gdiplus::Bitmap& bitmap) {
+	ClearImage();
+
 	width = bitmap.GetWidth();
 	height = bitmap.GetHeight();
 	quadMemorySize = width * height * 4;
@@ -28,10 +30,16 @@ void QuadSet::Init(HDC& hdc, Gdiplus::Bitmap& bitmap) {
 
 QuadSet::~QuadSet()
 {
-	DeleteDC(hdc);
-	DeleteObject(bitmap);
-	if(nullptr != quad)
+	ClearImage();
+}
+
+void QuadSet::ClearImage() {
+	if (quad != nullptr) {
+		DeleteDC(hdc);
+		DeleteObject(bitmap);
 		delete[] quad;
+		quad = nullptr;
+	}
 }
 
 void QuadSet::UpdateBitmap() {
@@ -63,18 +71,21 @@ inline Real Max50(Real k)
 	return 0;
 }
 
-void QuadSet::DrawCircle(Real r, COLORREF color)
+void QuadSet::DrawCircle(Real radius, int r,int g, int b)
 {
 	int x, y;
 
-	for (x = 0; x < r * 2; x++)
-		for (y = 0; y < r * 2; y++)
+	for (x = 0; x < radius * 2; x++)
+		for (y = 0; y < radius * 2; y++)
 		{
 			Real xDis = x - r;
 			Real yDis = y - r;
 			Real distance = sqrt(xDis * xDis + yDis * yDis);
 
-			if (distance <= r)
-				SetPixel(hdc, x, y, color);
+			if (distance <= r) {
+				quad[x + width * y].rgbRed = r;
+				quad[x + width * y].rgbGreen = g;
+				quad[x + width * y].rgbBlue = b;
+			}
 		}
 }

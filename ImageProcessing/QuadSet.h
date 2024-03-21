@@ -2,7 +2,6 @@
 
 #include "include.h"
 
-#include <Windows.h>
 #include <math.h>
 
 using Real = float;
@@ -19,7 +18,7 @@ public:
 	void UpdateBitmap();
 	void SetPixel_quad(int x, int y, int r, int g, int b);
 	void FillBlack();
-	void DrawCircle(Real radius, COLORREF color);
+	void DrawCircle(Real radius, int r, int g, int b);
 
 	HDC hdc;
 
@@ -29,5 +28,7 @@ public:
 
 	RGBQUAD* quad = nullptr;
 private:
+	void ClearImage();
+
 	HBITMAP bitmap;
 };

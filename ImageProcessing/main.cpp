@@ -2,7 +2,6 @@
 
 #include <random>
 
-QuadSet buffer;
 HWND winHandle;
 HDC winCon;
 HINSTANCE instance;
@@ -12,7 +11,7 @@ QuadSet grayImage;
 QuadSet histogramImage;
 QuadSet histogramColor;
 
-const bool ONLY_COLOR = true;
+const bool ONLY_COLOR = false;
 
 class HSV {
 public:
@@ -39,55 +38,17 @@ void ReDraw()
 	InvalidateRect(winHandle, NULL, true);
 }
 
-LRESULT CALLBACK winProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-	switch (msg)
-	{
-	case WM_CREATE:
-		winCon = GetDC(hwnd);
-		buffer.Init(winCon, WINDOW_WIDTH, WINDOW_HEIGHT);
-		return 0;
-	case WM_PAINT:
-		PAINTSTRUCT ps;
-		BeginPaint(winHandle, &ps);
-
-		BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, 0, 0, BLACKNESS);
-
-		if (!ONLY_COLOR) {
-			StretchBlt(ps.hdc, 0, 0, resizedImageWidth, WINDOW_HEIGHT, image.hdc, 0, 0, image.width, image.height, SRCCOPY);
-			StretchBlt(ps.hdc, resizedImageWidth * 1, 0, resizedImageWidth, WINDOW_HEIGHT, grayImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
-			StretchBlt(ps.hdc, resizedImageWidth * 2, 0, resizedImageWidth, WINDOW_HEIGHT, histogramImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
-			StretchBlt(ps.hdc, resizedImageWidth * 3, 0, resizedImageWidth, WINDOW_HEIGHT, histogramColor.hdc, 0, 0, image.width, image.height, SRCCOPY);
-		}
-		else {
-			BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, image.hdc, 0, 0, SRCCOPY);
-			BitBlt(ps.hdc, image.width, 0, WINDOW_WIDTH, WINDOW_HEIGHT, histogramColor.hdc, 0, 0, SRCCOPY);
-		}
-
-		EndPaint(winHandle, &ps);
-		return 0;
-	case WM_DESTROY:
-		ReleaseDC(hwnd, winCon);
-		PostQuitMessage(0);
-		return 0;
+void ReCalWindowSize() {
+	if (ONLY_COLOR) {
+		WINDOW_WIDTH = image.width * 2;
+		resizedImageWidth = image.width;
+		WINDOW_HEIGHT = image.height;
 	}
-	return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-
-void SetWindowClass(WNDCLASSEX& winc)
-{
-	winc.cbSize = sizeof(winc);
-	winc.style = 0;
-	winc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	winc.hInstance = instance;
-	winc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	winc.cbClsExtra = 0;
-	winc.cbWndExtra = 0;
-	winc.hbrBackground = NULL;
-	winc.lpszMenuName = WINDOWNAME;
-	winc.lpszClassName = CLASSNAME;
-	winc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
-	winc.lpfnWndProc = winProc;
+	else {
+		WINDOW_WIDTH = 1500;
+		resizedImageWidth = (float)WINDOW_WIDTH / 4;
+		WINDOW_HEIGHT = image.height * resizedImageWidth / (float)image.width;
+	}
 }
 
 void MessageLoop()
@@ -114,7 +75,7 @@ void CCreateConsole()
 	freopen("CONIN$", "r", stdin);
 }
 
-bool CLoadImage(std::wstring s, QuadSet& image) {
+bool CLoadImage(std::wstring s) {
 
 	Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(s.c_str());
 	if (bitmap == nullptr || Gdiplus::Ok != bitmap->GetLastStatus()) {
@@ -265,7 +226,7 @@ void WorkColorHistogram(QuadSet& image) {
 	int changeTo[allColors] = { 0, };
 	for (int i = 0; i < allColors; i++) {
 		sum += count[i];
-		changeTo[i] = allColors * (sum / (double)size);
+		changeTo[i] = round(allColors * (sum / (double)size));
 		if (changeTo[i] >= allColors)
 			changeTo[i] = allColors - 1;
 	}
@@ -337,10 +298,82 @@ void Test_HsvRgb() {
 	}
 }
 
+LRESULT CALLBACK winProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (msg)
+	{
+	case WM_CREATE:
+		winCon = GetDC(hwnd);
+		DragAcceptFiles(hwnd, true);
+		return 0;
+	case WM_PAINT:
+		PAINTSTRUCT ps;
+		BeginPaint(winHandle, &ps);
+
+		BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, 0, 0, BLACKNESS);
+
+		if (!ONLY_COLOR) {
+			StretchBlt(ps.hdc, 0, 0, resizedImageWidth, WINDOW_HEIGHT, image.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 1, 0, resizedImageWidth, WINDOW_HEIGHT, grayImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 2, 0, resizedImageWidth, WINDOW_HEIGHT, histogramImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 3, 0, resizedImageWidth, WINDOW_HEIGHT, histogramColor.hdc, 0, 0, image.width, image.height, SRCCOPY);
+		}
+		else {
+			BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, image.hdc, 0, 0, SRCCOPY);
+			BitBlt(ps.hdc, image.width, 0, WINDOW_WIDTH, WINDOW_HEIGHT, histogramColor.hdc, 0, 0, SRCCOPY);
+		}
+
+		EndPaint(winHandle, &ps);
+		return 0;
+	case WM_DROPFILES:
+	{
+		HDROP drop = (HDROP)wParam;
+		UINT fileCount = DragQueryFile(drop, 0xFFFFFFFF, NULL, 0);
+
+		if (fileCount != 1) {
+			break;
+		}
+		int fileLen = DragQueryFile(drop, 0, NULL, 0) + 1;
+		TCHAR* fileName = new TCHAR[fileLen];
+		memset(fileName, 0, sizeof(TCHAR) * fileLen);
+		DragQueryFile(drop, 0, fileName, 1000);
+
+		CLoadImage(fileName);
+		ReCalWindowSize();
+		Work();
+		SetWindowPos(hwnd, HWND_TOP, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_NOMOVE);
+		ReDraw();
+		
+		return 0;
+	}
+	case WM_DESTROY:
+		ReleaseDC(hwnd, winCon);
+		PostQuitMessage(0);
+		return 0;
+	}
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+void SetWindowClass(WNDCLASSEX& winc)
+{
+	winc.cbSize = sizeof(winc);
+	winc.style = 0;
+	winc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	winc.hInstance = instance;
+	winc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	winc.cbClsExtra = 0;
+	winc.cbWndExtra = 0;
+	winc.hbrBackground = NULL;
+	winc.lpszMenuName = WINDOWNAME;
+	winc.lpszClassName = CLASSNAME;
+	winc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+	winc.lpfnWndProc = winProc;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int CmdShow)
 {
-	CCreateConsole();
-	Test_HsvRgb();
+	///CCreateConsole();
+	//Test_HsvRgb();
 
 	WNDCLASSEX winc;
 	instance = hInstance;
@@ -355,22 +388,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ULONG_PTR ptr;
 	Gdiplus::GdiplusStartupInput in;
 	Gdiplus::GdiplusStartup(&ptr, &in, 0);
-	if (!CLoadImage(L"png.png", image)) {
+	if (!CLoadImage(L"test.bmp")) {
 		MessageBox(NULL, L"Cannot load image", L"error", MB_OK);
 		exit(0);
 	}
 	Work();
-
-	if(ONLY_COLOR){
-		WINDOW_WIDTH = image.width * 2;
-		resizedImageWidth = image.width;
-		WINDOW_HEIGHT = image.height;
-	}
-	else {
-		WINDOW_WIDTH = 1500;
-		resizedImageWidth = (float)WINDOW_WIDTH / 4;
-		WINDOW_HEIGHT = image.height * resizedImageWidth / (float)image.width;
-	}
+	
+	ReCalWindowSize();
 
 	winHandle = CreateWindowEx(NULL, CLASSNAME, WINDOWNAME, WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, 0, 0,
 		WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, hInstance, NULL);
