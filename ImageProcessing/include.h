@@ -5,7 +5,6 @@
 #pragma comment(lib,"gdiplus.lib")
 
 #include <Windows.h>
-#include <Windows.h>
 #include <random>
 #include <time.h>
 #include <math.h>

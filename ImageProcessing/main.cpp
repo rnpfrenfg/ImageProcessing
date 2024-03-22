@@ -1,6 +1,10 @@
 #include "include.h"
 
+#include "QuadSet.h"
 #include <random>
+#include <string>
+
+#define CONSOLE_DEBUG FALSE
 
 HWND winHandle;
 HDC winCon;
@@ -10,6 +14,8 @@ QuadSet image;
 QuadSet grayImage;
 QuadSet histogramImage;
 QuadSet histogramColor;
+
+int graphHeight = 400;
 
 const bool ONLY_COLOR = false;
 
@@ -26,7 +32,14 @@ const wchar_t WINDOWNAME[] = L"test";
 
 int WINDOW_WIDTH = 1500;
 int WINDOW_HEIGHT = 1;
-float resizedImageWidth = 0;
+int resizedImageWidth = 0;
+int resizedImageHeight = 0;
+
+//0 = bw input
+//1 = bw output
+//2 = Color input histogram
+//3 = Color output histogram
+int graph[4][256] = { 0, };
 
 void PrintError(const wchar_t* err)
 {
@@ -38,16 +51,75 @@ void ReDraw()
 	InvalidateRect(winHandle, NULL, true);
 }
 
+//width = x + len + 20
+//height = y + height + 20; + font size
+//
+//return = width
+int DrawGraph(int x, int y, int* list, int len, int height, std::wstring comment = L"no") {
+	HDC hdc = winCon;
+
+	int xAxis = x + 10;
+	int yAxis = y + 10 + height;
+	int xEnd = x + len + 30;
+	int yEnd = yAxis + 10
+		;
+	MoveToEx(hdc, xAxis, y + 10, NULL);
+	LineTo(hdc, xAxis, yEnd);
+
+	MoveToEx(hdc, x + 5, yAxis, NULL);
+	LineTo(hdc, xEnd, yAxis);
+
+	if (NULL == list) {
+		return xEnd - x;
+	}
+
+	int maxValue = 0;
+	for (int i = 0; i < len; i++) {
+		if (list[i] > maxValue)
+			maxValue = list[i];
+	}
+	double valChange = height / (double)maxValue;
+
+
+	int xStart = xAxis + 10;
+	for (int i = 0; i < len; i++) {
+		MoveToEx(hdc, xStart + i, yAxis, NULL);
+		int height = yAxis - (list[i] * valChange);
+		LineTo(hdc, xStart + i, height);
+	}
+
+	TextOut(hdc, xAxis, yEnd + 10, comment.c_str(), comment.length());
+
+#if CONSOLE_DEBUG == TRUE
+	printf("[%ls]의 최댓값 = %d\n", comment.c_str(), maxValue);
+#endif
+
+	return xEnd - x;
+}
+
 void ReCalWindowSize() {
 	if (ONLY_COLOR) {
-		WINDOW_WIDTH = image.width * 2;
-		resizedImageWidth = image.width;
-		WINDOW_HEIGHT = image.height;
+		if (image.height > 700) {
+			double p = 700. / image.height;
+			resizedImageHeight = 700;
+			resizedImageWidth = image.width * p;
+
+		}
+		else {
+			resizedImageHeight = image.height;
+			resizedImageWidth = image.width;
+		}
+		WINDOW_WIDTH = resizedImageWidth * 2;
+		WINDOW_HEIGHT = resizedImageHeight + graphHeight;
+
+		int minWidth = 30 + 2 * DrawGraph(0, 0, 0, 256, 0);
+		WINDOW_WIDTH = max(minWidth, WINDOW_WIDTH);
 	}
 	else {
 		WINDOW_WIDTH = 1500;
-		resizedImageWidth = (float)WINDOW_WIDTH / 4;
-		WINDOW_HEIGHT = image.height * resizedImageWidth / (float)image.width;
+		resizedImageWidth = (float)WINDOW_WIDTH / 4.;
+		resizedImageHeight = image.height * resizedImageWidth / (float)image.width;
+		WINDOW_HEIGHT = resizedImageHeight + graphHeight;
 	}
 }
 
@@ -103,7 +175,7 @@ void WorkHistogram(QuadSet& image) {
 	RGBQUAD* quad = image.quad;
 	int size = image.width * image.height;
 	const int allColors = 256;
-	int count[allColors] = { 0, };
+	auto& count = graph[0];
 
 	for (int i = 0; i < size; i++) {
 		auto& pixel = quad[i];
@@ -121,6 +193,7 @@ void WorkHistogram(QuadSet& image) {
 	for (int i = 0; i < size; i++) {
 		auto& pixel = quad[i];
 		pixel.rgbBlue = pixel.rgbRed = pixel.rgbGreen = changeTo[pixel.rgbRed];
+		graph[1][pixel.rgbBlue]++;
 	}
 }
 
@@ -214,7 +287,7 @@ void WorkColorHistogram(QuadSet& image) {
 	int size = image.width * image.height;
 
 	const int allColors = 256;
-	int count[allColors] = { 0, };
+	auto& count = graph[2];
 
 	for (int i = 0; i < size; i++) {
 		RGBtoHSV(quad[i], hsv[i]);
@@ -229,11 +302,14 @@ void WorkColorHistogram(QuadSet& image) {
 		changeTo[i] = round(allColors * (sum / (double)size));
 		if (changeTo[i] >= allColors)
 			changeTo[i] = allColors - 1;
+
+		//graph[3][changeTo[i]] = graph[2][i];
 	}
 
 	for (int i = 0; i < size; i++) {
 		auto& hsvPixel = hsv[i];
 		hsvPixel.rgbBlue = changeTo[(int) hsvPixel.rgbBlue];
+		graph[3][(int)hsvPixel.rgbBlue]++;
 		HSVtoRGB(hsvPixel, quad[i]);
 	}
 	delete[] hsv;
@@ -307,24 +383,32 @@ LRESULT CALLBACK winProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		DragAcceptFiles(hwnd, true);
 		return 0;
 	case WM_PAINT:
+	{
 		PAINTSTRUCT ps;
 		BeginPaint(winHandle, &ps);
 
-		BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, 0, 0, BLACKNESS);
+		BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, 0, 0, WHITENESS);
 
+		int pos = 0;
+		pos += 10 + DrawGraph(pos, resizedImageHeight, graph[2], 256, 255, L"컬러 입력값 히스토그램");
+		pos += 10 + DrawGraph(pos, resizedImageHeight, graph[3], 256, 255, L"컬러 출력값 히스토그램");
 		if (!ONLY_COLOR) {
-			StretchBlt(ps.hdc, 0, 0, resizedImageWidth, WINDOW_HEIGHT, image.hdc, 0, 0, image.width, image.height, SRCCOPY);
-			StretchBlt(ps.hdc, resizedImageWidth * 1, 0, resizedImageWidth, WINDOW_HEIGHT, grayImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
-			StretchBlt(ps.hdc, resizedImageWidth * 2, 0, resizedImageWidth, WINDOW_HEIGHT, histogramImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
-			StretchBlt(ps.hdc, resizedImageWidth * 3, 0, resizedImageWidth, WINDOW_HEIGHT, histogramColor.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 0, 0, resizedImageWidth, resizedImageHeight, image.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 1, 0, resizedImageWidth, resizedImageHeight, histogramColor.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 2, 0, resizedImageWidth, resizedImageHeight, grayImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 3, 0, resizedImageWidth, resizedImageHeight, histogramImage.hdc, 0, 0, image.width, image.height, SRCCOPY);
+
+			pos += 10 + DrawGraph(pos, resizedImageHeight, graph[0], 256, 255, L"흑백 입력값 히스토그램");
+			pos += 10 + DrawGraph(pos, resizedImageHeight, graph[1], 256, 255, L"흑백 출력값 히스토그램");
 		}
 		else {
-			BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, image.hdc, 0, 0, SRCCOPY);
-			BitBlt(ps.hdc, image.width, 0, WINDOW_WIDTH, WINDOW_HEIGHT, histogramColor.hdc, 0, 0, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 0, 0, resizedImageWidth, resizedImageHeight, image.hdc, 0, 0, image.width, image.height, SRCCOPY);
+			StretchBlt(ps.hdc, resizedImageWidth * 1, 0, resizedImageWidth, resizedImageHeight, histogramColor.hdc, 0, 0, image.width, image.height, SRCCOPY);
 		}
 
 		EndPaint(winHandle, &ps);
 		return 0;
+	}
 	case WM_DROPFILES:
 	{
 		HDROP drop = (HDROP)wParam;
@@ -338,12 +422,14 @@ LRESULT CALLBACK winProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		memset(fileName, 0, sizeof(TCHAR) * fileLen);
 		DragQueryFile(drop, 0, fileName, 1000);
 
+		memset(graph, 0, sizeof(graph));
+
 		CLoadImage(fileName);
 		ReCalWindowSize();
 		Work();
 		SetWindowPos(hwnd, HWND_TOP, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_NOMOVE);
 		ReDraw();
-		
+
 		return 0;
 	}
 	case WM_DESTROY:
@@ -372,8 +458,10 @@ void SetWindowClass(WNDCLASSEX& winc)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int CmdShow)
 {
-	///CCreateConsole();
-	//Test_HsvRgb();
+#if CONSOLE_DEBUG == TRUE
+	setlocale(LC_ALL, "");
+	CCreateConsole();
+#endif
 
 	WNDCLASSEX winc;
 	instance = hInstance;
