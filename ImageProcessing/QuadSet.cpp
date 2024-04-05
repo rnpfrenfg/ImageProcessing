@@ -46,7 +46,7 @@ void QuadSet::UpdateBitmap() {
 	SetBitmapBits(this->bitmap, quadMemorySize, quad);
 }
 
-void QuadSet::SetPixel_quad(int x, int y, int r, int g, int b)
+void QuadSet::SetPixel(int x, int y, int r, int g, int b)
 {
 	if (x >= width || y >= height)
 		return;
@@ -57,6 +57,15 @@ void QuadSet::SetPixel_quad(int x, int y, int r, int g, int b)
 	quad[drawTo].rgbRed = r;
 	quad[drawTo].rgbGreen = g;
 	quad[drawTo].rgbBlue = b;
+}
+
+int QuadSet::GetPixel(int x, int y) {
+	if (x < 0 || x >= width)
+		return 0;
+	if (y < 0 || y >= height)
+		return 0;
+
+	return quad[x + width * y].rgbRed;
 }
 
 void QuadSet::FillBlack()

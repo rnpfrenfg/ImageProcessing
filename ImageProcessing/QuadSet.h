@@ -16,7 +16,8 @@ public:
 	void Init(HDC& hdc, Gdiplus::Bitmap& bitmap);
 
 	void UpdateBitmap();
-	void SetPixel_quad(int x, int y, int r, int g, int b);
+	int GetPixel(int x, int y);
+	void SetPixel(int x, int y, int r, int g, int b);
 	void FillBlack();
 	void DrawCircle(Real radius, int r, int g, int b);
 
