@@ -28,6 +28,11 @@ const wchar_t WINDOWNAME[] = L"test";
 int WINDOW_WIDTH = 1200;
 int WINDOW_HEIGHT = 700;
 
+int boardWidth = 800;
+int boardHeight = 500;
+int dots = 5;
+int clusters = 700;
+
 class cRGB {
 public:
 	cRGB(int r, int g, int b)
@@ -73,6 +78,12 @@ void MessageLoop()
 	}
 }
 
+void PrintClusterCount() {
+	for (int i = 0; i < mean->meansCount; i++) {
+		printf("[%d] : %d\n", i, mean->clusterCount[i]);
+	}
+}
+
 void CCreateConsole()
 {
 	AllocConsole();
@@ -112,9 +123,13 @@ LRESULT CALLBACK winProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			buffer.DrawCircle(4, meanLoc.x, meanLoc.y, 0, 0, 0);
 			buffer.DrawCircle(3, meanLoc.x, meanLoc.y, rgb.r,rgb.g,rgb.b);
 		}
-
 		buffer.UpdateBitmap();
 		BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, buffer.hdc, 0, 0, SRCCOPY);
+		MoveToEx(ps.hdc, 0, boardHeight, NULL);
+		LineTo(ps.hdc, boardWidth, boardHeight);
+		LineTo(ps.hdc, boardWidth, 0);
+
+		PrintClusterCount();
 
 		EndPaint(winHandle, &ps);
 		return 0;
@@ -144,11 +159,25 @@ void SetWindowClass(WNDCLASSEX& winc)
 }
 
 void consoleAccpet() {
-	int i;
+	std::string in;
+	int count;
 	while (true) {
-		std::cin >> i;
-		mean->FindNeareastMean();
-		mean->ReCalculateMean();
+		std::cin >> in;
+		count = 0;
+		for (char c : in) {
+			if (c >= '0' && c <= '9') {
+				count *= 10;
+				count += c - '0';
+			}
+			else {
+				c = 1; break;
+			}
+		}
+		for (int i = 0; i < count; i++) {
+			mean->FindNeareastMean();
+			mean->ReCalculateMean();
+		}
+
 		ReDraw();
 	}
 }
@@ -159,7 +188,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	CCreateConsole();
 	consoleThread = new std::thread(consoleAccpet);
 
-	mean = new KMeans(800, 500, 4, 1000);
+	mean = new KMeans(boardWidth, boardHeight, dots, clusters);
 	mean->Init();
 	mean->FindNeareastMean();
 

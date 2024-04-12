@@ -31,6 +31,7 @@ public:
 	int dotCount;
 	Location* dotLocation;
 	int* neareastMean;
+	int* clusterCount;
 
 	bool dotInited;
 	bool meansInited;

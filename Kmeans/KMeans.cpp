@@ -36,6 +36,7 @@ KMeans::KMeans(int width, int height, int meansCount, int dotCount) {
 	this->meansLoc = new Location[meansCount];
 	this->dotLocation = new Location[dotCount];
 	this->neareastMean = new int[dotCount];
+	this->clusterCount = new int[meansCount];
 
 	memset(dotLocation, 0, sizeof(Location) * dotCount);
 	memset(meansLoc, 0, sizeof(Location) * meansCount);
@@ -93,6 +94,8 @@ void KMeans::Init() {
 }
 
 void KMeans::FindNeareastMean() {
+	memset(clusterCount, 0, meansCount * sizeof(int));
+
 	for (int dotIndex = 0; dotIndex < dotCount; dotIndex++) {
 		auto& dot = dotLocation[dotIndex];
 		int nearK = 0;
@@ -108,34 +111,32 @@ void KMeans::FindNeareastMean() {
 		}
 
 		neareastMean[dotIndex] = nearK;
+		clusterCount[nearK]++;
 	}
 }
 
 void KMeans::ReCalculateMean() {
 	int* mmx = new int[meansCount];
 	int* mmy = new int[meansCount];
-	int* clusterCount = new int[meansCount];
 
-	memset(mmx, 0, meansCount);
-	memset(mmy, 0, meansCount);
-	memset(clusterCount, 0, meansCount);
+	memset(mmx, 0, meansCount * sizeof(int));
+	memset(mmy, 0, meansCount * sizeof(int));
 
 	for (int i = 0; i < dotCount; i++) {
 		auto& dot = dotLocation[i];
 		int k = neareastMean[i];
 		mmx[k] += dot.x;
 		mmy[k] += dot.y;
-		clusterCount[k]++;
 	}
 
 	for (int k = 0; k < meansCount; k++) {
 		auto& mean = meansLoc[k];
+		if (clusterCount[k] == 0)
+			continue;
 		mean.x = mmx[k] / (double)clusterCount[k];
 		mean.y = mmy[k] / (double)clusterCount[k];
-
-		printf("[%d] : %d , %d\n", k, mean.x, mean.y);
 	}
+
 	delete[] mmx;
 	delete[] mmy;
-	delete[] clusterCount;
 }
