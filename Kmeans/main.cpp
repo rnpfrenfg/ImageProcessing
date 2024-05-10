@@ -18,7 +18,7 @@ QuadSet buffer;
 
 int graphHeight = 400;
 
-const bool ONLY_COLOR = false;
+bool paintBackground = false;
 
 using Real = float;
 
@@ -107,6 +107,28 @@ LRESULT CALLBACK winProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		BitBlt(ps.hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, 0, 0, WHITENESS);
 
 		buffer.FillWhite();
+		if (paintBackground) {
+			auto& meansLoc = mean->meansLoc;
+			for (int x = 0; x < mean->width; x++) {
+				for (int y = 0; y < mean->height; y++) {
+					Location loc;
+					loc.x = x; loc.y = y;
+					int nearestDotLen = loc.Distance2(meansLoc[0]);
+					int nearestDot = 0;
+					for (int dotIndex = 1; dotIndex < mean->meansCount; dotIndex++) {
+						auto dis = meansLoc[dotIndex].Distance2(loc);
+						if (nearestDotLen > dis) {
+							nearestDotLen = dis;
+							nearestDot = dotIndex;
+						}
+					}
+
+					auto& rgb = kColor[nearestDot];
+					buffer.SetPixel(x, y, 255 - rgb.r, 255 - rgb.g, 255 - rgb.b);
+				}
+			}
+		}
+
 		auto& dots = mean->dotLocation;
 		for (int i = 0; i < mean->dotCount; i++) {
 			auto& dot = dots[i];
@@ -170,7 +192,9 @@ void consoleAccpet() {
 				count += c - '0';
 			}
 			else {
-				c = 1; break;
+				if (c == 'a' && in.length() == 1)
+					paintBackground = !paintBackground;
+				break;
 			}
 		}
 		for (int i = 0; i < count; i++) {
